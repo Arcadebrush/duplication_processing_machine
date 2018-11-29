@@ -1,5 +1,4 @@
 # duplication_processing_machine ver 0.1
-# made by JYH
 # 2018-11-28
 
 # Import
@@ -94,22 +93,6 @@ def data_loading(__filename__, TABLE, DICTIONARY):
     except:
         print("Fail to load " + str(__filename__) + "data!")
 
-# data_processing
-# 2 parts
-# PREPROCESSING
-# PROCESSING
-def data_processing(DICTIONARY):
-
-    for iterator in range(len(DICTIONARY["id"])):
-        # preprocessing data
-        [name_ko, name_en, o_name_ko, o_name_en] = PREPROCESSING(DICTIONARY["name_ko"][iterator], DICTIONARY["name_en"][iterator])
-
-        # proceesing data
-        PROCESSING(name_ko, name_en, o_name_ko, o_name_en)
-
-        company_name_out.flush()
-        additional_name_out.flush()
-
 # loading machine data
 def machine_data_loading():
 
@@ -146,128 +129,257 @@ def machine_data_loading():
         company.close()
         additional.close()
 
-# verification
-# user input need
-def verification_test(name_ko, max_name):
+# find_key
+# return key number
+def find_key(name):
+
+    name = name.strip().lower()
+
+    for idx in range(len(company_name)):
+        if name == company_name[idx]:
+            return connected_company[idx]
+
+    # not exist
+    return -1
+
+# validation_test
+# check if machine seperate data well
+# user input
+def validation_test(name, max_name):
     while True:
-        yn = input("company_name : " + str(max_name) + "\t additional_name : " + str(name_ko.replace(max_name,"")) + "  (y/n)\n")
+        print("\n" + str(name) + " is similar to " + str(max_name))
+        print("seperate " + str(name))
+        yn = input("company_name : " + str(max_name) + "\t additional_name : " + str(name.replace(max_name,"")) + "  (y/n)\n")
 
         yn = yn.strip()
 
         if yn == "y":
-            additional_name.append(name_ko.replace(max_name,""))
+            print(str(name.replace(max_name,"")) + " is added to the additional_name")
+            # list input
+            additional_name.append(name.replace(max_name,""))
+
+            # database input
+            additional_name_out.write(str(name.replace(max_name,"")) + "\n")
             return True
         elif yn == "n":
             return False
 
 
 # is_same
-# return connected_key if input A is in the company_name
-def is_same(name_ko, name_en):
+# return True if the company A is already in the list
+def is_same(name_ko, name_en, o_name_ko, o_name_en):
 
     ko_key = -1
     en_key = -1
 
-    for idx in range(len(company_name)):
-        if name_ko == company_name[idx]:
-            ko_key = connected_company[idx]
-        if name_en == company_name[idx]:
-            en_key = connected_company[idx]
+    ko_key = find_key(name_ko)
+    en_key = find_key(name_en)
 
     # both are in the list
     if ko_key != -1 and en_key != -1:
         # error
         if ko_key != en_key:
-            print("Error! : " + str(name_ko) + "\t" + str(name_en) + " are not connected!")
+            print("Error! : " + str(o_name_ko) + "\t" + str(o_name_en) + " are not connected!")
         else:
             return True
-    # at least one is in the list
+
+    # Korean name is in the list
     elif ko_key != -1:
-        # input new company in the list
+        # input English name into the list
         if name_en != "":
+            # output to database
             company_name_out.write(str(name_en) + "\t" + str(ko_key) + "\n")
+
+            # output to list
             company_name.append(str(name_en))
             connected_company.append(ko_key)
-            print(str(name_en) + " is new data and conneted with " + str(name_ko))
+
+            print("\n" + str(o_name_en) + " is a new data and conneted with " + str(o_name_ko))
         return True
+
+    # English name is in the list
     elif en_key != -1:
-        # input new company in the list
+        # input Korean name in the list
         if name_ko != "":
+            # output to database
             company_name_out.write(str(name_ko) + "\t" + str(en_key) + "\n")
+
+            # output to list
             company_name.append(str(name_ko))
             connected_company.append(en_key)
-            print(str(name_ko) + " is new data and conneted with " + str(name_en))
+            print("\n" + str(o_name_ko) + " is a new data and conneted with " + str(o_name_en))
         return True
+
     # neither is in the list
     else:
         return False
 
 # is_similar
-#
-#
-def is_similar(name_ko, name_en):
+# find the longest common string
+# seperate name into 2 parts (longest common string, additional string)
+# check this seperation is valid
+def is_similar(name):
 
-    # find max_common_length
+    if name == "":
+        return False
+
     max_length = 0
     max_name = ""
 
     for c_name in company_name:
-        # when company_name is same:
-        if c_name in name_ko:
+        # find the longest common string
+        if c_name in name:
             if len(c_name) > max_length:
                 max_length = len(c_name)
                 max_name = c_name
 
-    # common part exist
+    # common string exist
     if max_length > 0:
         for a_name in additional_name:
             # when additional_name is same:
-            if a_name == name_ko.replace(max_name,""):
-                # implement name_en here
-                return True
+            if a_name == name.replace(max_name,""):
+                print(str(name.replace(max_name,"")) + " is already in additional_name")
+                # return company_name
+                return max_name
 
-        # verification_test
-        if verification_test(name_ko,max_name) is False:
+        # validation_test fail
+        if validation_test(name, max_name) is False:
+            # add company
             return False
+        # else
+        else :
+            # return company_name
+            return max_name
+
+    # else
     else:
-        # company_add
+        # add_company
         return False
 
 # add company
-# user section
-# implement en name
-#
-def add_company(o_name_ko, o_name_en):
+# add company with name
+# assign same conneted key number with connected_company
+# user input
+def add_company(name, connected_company_name, o_name):
 
+    # last_key of connected_company key
     global last_key
 
-    if o_name_ko != "" or o_name_en != "":
+    if name != "":
 
-        print("\nPlease seperate <" + str(o_name_ko) + ", " + str(o_name_en) + ">\n")
+        print("\nPlease seperate <" + str(o_name) + ">\n")
 
+        # user input
         cn = input("company_name : ")
         cn = cn.strip()
+        an = ""
 
         if cn != "/a":
-            an = input("addtion name : ")
+            an = input("additional_name : ")
             an = an.strip()
+            print("deleted_part : " + str(o_name.replace(cn,"").replace(an,"")))
+
+        # in case user input wrongly
+        [cn, an, o_cn, o_an] = PREPROCESSING(cn,an)
+
+        # if additional_name exist
+        if cn != "/a" and an != "":
+
+            # additional_name duplication check
+            a_check  = False
+
+            for a_name in additional_name:
+                if a_name == an:
+                    a_check = True
+                    break
+
+            if a_check == False:
+                # list input
+                additional_name.append(an)
+                # database input
+                additional_name_out.write(str(an) + "\n")
+
+                print("\n" + str(an) + " is added in additional_name")
+
+            else:
+                print("\n" + str(an) + " is already in the additional_name")
 
         if cn != "":
+            # all
             if cn == "/a":
-                last_key += 1
-                company_name.append(o_name_ko)
-                connected_company.append(last_key)
-                company_name_out.write(str(o_name_ko) + "\t" + str(last_key) + "\n")
+                # connected_company exist
+                if connected_company_name != "":
+                    key = find_key(connected_company_name)
+
+                    # list input
+                    company_name.append(name)
+                    connected_company.append(key)
+
+                    # database input
+                    company_name_out.write(str(name) + "\t" + str(key) + "\n")
+
+                    print("\n" + str(name) + " is added in company_name and conneted with " + str(connected_company_name))
+
+                # else
+                else:
+                    # duplication test_data
+                    # check new korean name is already in the list
+                    key = find_key(name)
+
+                    if key == -1:
+                        last_key += 1
+                        # list input
+                        company_name.append(name)
+                        connected_company.append(last_key)
+
+                        # database input
+                        company_name_out.write(str(name) + "\t" + str(last_key) + "\n")
+
+                        print("\n" + str(name) + " is added in company_name")
+
+                    else :
+                        print("\n" + str(name) + " is already in company_name")
+
+                return name
+
+            # not all
             else:
-                last_key += 1
-                company_name.append(cn)
-                connected_company.append(last_key)
-                company_name_out.write(str(cn) + "\t" + str(last_key) + "\n")
+                # connected_company exist
+                if connected_company_name != "":
+                    key = find_key(connected_company_name)
 
-        if cn != "/a" and an != "":
-            additional_name.append(an)
-            additional_name_out.write(str(an) + "\n")
+                    # list input
+                    company_name.append(cn)
+                    connected_company.append(key)
 
+                    # database input
+                    company_name_out.write(str(cn) + "\t" + str(key) + "\n")
+
+                    print("\n" + str(cn) + " is added in company_name")
+                # else
+                else:
+                    # duplication test_data
+                    # check new korean name is already in the list
+                    key = find_key(cn)
+
+                    if key == -1 :
+                        last_key += 1
+                        # list input
+                        company_name.append(cn)
+                        connected_company.append(last_key)
+
+                        # database input
+                        company_name_out.write(str(cn) + "\t" + str(last_key) + "\n")
+
+                        print("\n" + str(cn) + " is added in company_name")
+
+                    else:
+                        print("\n" + str(cn) + " is already in company_name")
+
+                return cn
+
+    else :
+        return ""
 
 # preprocessing
 # delete prefix and suffix(Delimiters)
@@ -277,11 +389,14 @@ def PREPROCESSING(name_ko, name_en):
     o_name_ko = name_ko
     o_name_en = name_en
 
+    name_ko = name_ko.strip().lower()
+    name_en = name_en.strip().lower()
+
     for delimiter in Delimiters:
-        if delimiter in name_ko.strip().lower():
-            name_ko = name_ko.strip().lower().replace(delimiter, "")
-        if delimiter in name_en.strip().lower():
-            name_en = name_en.strip().lower().replace(delimiter, "")
+        if delimiter in name_ko:
+            name_ko = name_ko.replace(delimiter, "")
+        if delimiter in name_en:
+            name_en = name_en.replace(delimiter, "")
 
     return [name_ko, name_en, o_name_ko, o_name_en]
 
@@ -292,14 +407,72 @@ def PREPROCESSING(name_ko, name_en):
 def PROCESSING(name_ko, name_en, o_name_ko, o_name_en):
 
     # is not same
-    if is_same(name_ko, name_en) is False:
+    if is_same(name_ko, name_en, o_name_ko, o_name_en) is False:
 
-        # is not similar
-        if is_similar(name_ko, name_en) is False:
-            # add_company
-            add_company(o_name_ko, o_name_en)
+        ko_similar = is_similar(name_ko)
+        en_similar = is_similar(name_en)
+
+        # both are in the list
+        if ko_similar is not False and en_similar is not False:
+            pass
+
+        # only name_ko is in the list
+        elif ko_similar is not False:
+            # ko_similar is company_name of name_ko
+            add_company(name_en, ko_similar, o_name_en)
+
+        # only name_en is in the list
+        elif en_similar is not False:
+            # en_similar is company_name of name_en
+            add_company(name_ko, en_similar, o_name_ko)
+
+        # bot are not in the list
+        else:
+            # return of add_company is company_name
+            add_company(name_en, add_company(name_ko, "", o_name_ko), o_name_en)
+
+# PRINT_CONNECTION
+# print connected list companies
+def PRINT_CONNECTION():
+    yn = input("PRINT_CONNECTION? : ")
+
+    if yn == "y":
+        print("-------------------------------------")
+
+        set_connected_company = set(connected_company)
+
+        for key in set_connected_company:
+            for idx in range(len(company_name)):
+                if key == connected_company[idx]:
+                    sys.stdout.write(company_name[idx] + ", ")
+            print()
+
+        print("-------------------------------------")
+
+        return
+
+    else :
+        return
 
 
+# data_processing
+# 2 parts
+# PREPROCESSING
+# PROCESSING
+def data_processing(DICTIONARY):
+
+    for iterator in range(len(DICTIONARY["id"])):
+        # preprocessing data
+        [name_ko, name_en, o_name_ko, o_name_en] = PREPROCESSING(DICTIONARY["name_ko"][iterator], DICTIONARY["name_en"][iterator])
+
+        # proceesing data
+        PROCESSING(name_ko, name_en, o_name_ko, o_name_en)
+
+        company_name_out.flush()
+        additional_name_out.flush()
+
+        # for debugging
+        # PRINT_CONNECTION()
 
 # main
 if __name__ == "__main__":
@@ -313,7 +486,8 @@ if __name__ == "__main__":
 
     # data_loading
     print("------------ loading data ---------------")
-    data_loading(data_category[0], COMPANY_TABLE ,COMPANY_DIC)
+    data_loading("test_data/samsung", COMPANY_TABLE ,COMPANY_DIC)
+    #data_loading(data_category[0], COMPANY_TABLE ,COMPANY_DIC)
     #data_loading(data_category[1], SCHOOL_TABLE ,SCHOOL_DIC)
     print("-----------------------------------------\n")
     # data_loading done
