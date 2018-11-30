@@ -147,23 +147,73 @@ def find_key(name):
 # user input
 def validation_test(name, max_name):
     while True:
-        print("\n" + str(name) + " is similar to " + str(max_name))
-        print("seperate " + str(name))
-        yn = input("company_name : " + str(max_name) + "\t additional_name : " + str(name.replace(max_name,"")) + "  (y/n)\n")
+        # ex
+        # <samsung electronics> is already in the list
+        # <samsung electronic> is input
+        if len(name) < len(max_name):
+            print("\n" + str(name) + " is similar to " + str(max_name))
+            yn = input("merge " + str(name) + " to " + str(max_name) + " ? (y/n)\n")
+            yn = yn.strip()
 
-        yn = yn.strip()
+            if yn == "y":
+                print(str(name) + " is merged to " + str(max_name))
+                # list input
+                company_name.append(name)
+                connected_company.append(find_key(max_name))
 
-        if yn == "y":
-            print(str(name.replace(max_name,"")) + " is added to the additional_name")
-            # list input
-            additional_name.append(name.replace(max_name,""))
+                # database input
+                company_name_out.write(str(name) + "\t" + str(find_key(max_name)) + "\n")
+                return True
+            elif yn == "n":
+                return False
 
-            # database input
-            additional_name_out.write(str(name.replace(max_name,"")) + "\n")
-            return True
-        elif yn == "n":
-            return False
+        # ex
+        # <samsung electronic> is already in the list
+        # <samsung electronics> is input
+        else:
+            print("\n" + str(name) + " is similar to " + str(max_name))
+            yn = input("merge " + str(name) + " to " + str(max_name) + " ? (y/n)\n")
+            yn = yn.strip()
+            if yn == "y":
+                print(str(name) + " is merged to " + str(max_name))
+                # list input
+                company_name.append(name)
+                connected_company.append(find_key(max_name))
 
+                # database input
+                company_name_out.write(str(name) + "\t" + str(find_key(max_name)) + "\n")
+                return True
+
+            else :
+                print("\nseperate " + str(name))
+                yn = input("company_name : " + str(max_name) + "\t additional_name : " + str(name.replace(max_name,"")) + "  (y/n)\n")
+
+                yn = yn.strip()
+
+                if yn == "y":
+                    print(str(name.replace(max_name,"")) + " is added to the additional_name")
+                    # list input
+                    additional_name.append(name.replace(max_name,""))
+
+                    # database input
+                    additional_name_out.write(str(name.replace(max_name,"")) + "\n")
+                    return True
+                elif yn == "n":
+                    return False
+
+# merge_company
+# merge same companies has different key value
+def merge_company(ko_key, en_key):
+
+    # merge to lower key value
+    lower_key = (ko_key if ko_key < en_key else en_key)
+    higher_key = (ko_key if ko_key > en_key else en_key)
+
+    for idx in range(len(company_name)):
+        if connected_company[idx] == higher_key:
+            connected_company[idx] = lower_key
+
+    print("Companies are merged!")
 
 # is_same
 # return True if the company A is already in the list
@@ -179,7 +229,8 @@ def is_same(name_ko, name_en, o_name_ko, o_name_en):
     if ko_key != -1 and en_key != -1:
         # error
         if ko_key != en_key:
-            print("Error! : " + str(o_name_ko) + "\t" + str(o_name_en) + " are not connected!")
+            merge_company(ko_key, en_key)
+            return True
         else:
             return True
 
@@ -232,6 +283,16 @@ def is_similar(name):
             if len(c_name) > max_length:
                 max_length = len(c_name)
                 max_name = c_name
+
+        # in case name is in company_name
+        if name in c_name:
+            max_name = c_name
+            if validation_test(name, max_name) is False:
+                # add company
+                return False
+
+            else:
+                return max_name
 
     # common string exist
     if max_length > 0:
@@ -355,7 +416,7 @@ def add_company(name, connected_company_name, o_name):
                     # database input
                     company_name_out.write(str(cn) + "\t" + str(key) + "\n")
 
-                    print("\n" + str(cn) + " is added in company_name")
+                    print("\n" + str(cn) + " is added in company_name and conneted with " + str(connected_company_name))
                 # else
                 else:
                     # duplication test_data
