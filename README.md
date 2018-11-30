@@ -1,8 +1,10 @@
-# duplication_processing_machine
+# duplication_processing_machine ver 0.2
 
 still implementing
 
 기업/학교 이름이 중복되었을 경우 찾아서 알맞게 처리하는 프로그램입니다.
+
+Trie 자료구조 implementing
 
 # 알고리즘
 
