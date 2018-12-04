@@ -4,66 +4,41 @@
 # Import
 import io, sys
 
-
 # Koren output
 sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding = 'utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.detach(), encoding = 'utf-8')
 
 
-# company table/dictionary classification
+# company table/LIST classification
 # is_user_request (0 : created by 기업생성 , 1 : created by 경력/프로젝트)
 # member_count : members signed up company page
 # homepage_url : company homepage url
 # generated_user : user generated company
-COMPANY_TABLE = [ "id", "is_user_request", "member_count", "name_ko", "name_en", "url", "homepage_url", "generated_user"]
-COMPANY_DIC = {
-    "id" : [],
-    "is_user_request" : [],
-    "member_count" : [],
-    "name_ko" : [],
-    "name_en" : [],
-    "url" : [],
-    "homepage_url" : [],
-    "generated_user" : []
-}
+# merge_to : company should merge to "id"
+COMPANY_TABLE = [ "id", "is_user_request", "member_count", "name_ko", "name_en", "url", "homepage_url", "generated_user", "merge_to"]
+COMPANY_LIST = []
 
-# school table/dictionary classification
+# school table/LIST classification
 # name_other : english name
 # permalink : rocketpunch link
 # hompage : school homepage
 # count : rocketpunch users in school
 # verify_domain : email verification domain
 SCHOOL_TABLE = ["id","name", "name_other", "permalink", "homepage", "count", "verify_domain"]
-SCHOOL_DIC = {
-    "id" : [],
-    "name" : [],
-    "name_other" : [],
-    "permalink" : [],
-    "homepage" : [],
-    "count" : [],
-    "verify_domain" : []
-}
+SCHOOL_LIST = []
 
+# delete_company
+# company_name should deleted
+# deleted_name = []
 
-# global variables
-
-# company_name
-# ex) 삼성전자, 로켓펀치, LG
-company_name = []
-
-# additional_name
-# ex) 가전사업부, VE, 등
-additional_name = []
-
-# connected_compnay
-# connected_company has same key valueullim
-connected_company = []
-last_key = 0
+# ignore_id
+# ignored id_set
+ignore_id = []
 
 # append new data
-company_name_out = open("company_name", "a", encoding="utf-8")
-additional_name_out = open("additional_name", "a", encoding="utf-8")
-
+# company_name_out = open("company_name", "a", encoding="utf-8")
+# additional_name_out = open("additional_name", "a", encoding="utf-8")
+output_data = open("test-data-out_02","w", encoding="utf-8")
 
 # Delimiters
 # prefix and suffix
@@ -72,383 +47,257 @@ Delimiters = ["(주)", "(사)", "(유)", "(재)", "㈜", "@", "#", "주)", "주�
 "inc.", "co.", "ltd.", " "]
 
 
+# heapify
+def heapify(arr, i, heap_size):
+    smallest = i # Initialize smallest as root
+    l = 2 * i + 1   # left = 2*i + 1
+    r = 2 * i + 2  # right = 2*i + 2
+
+    # See if left child of root exists and it's member_count
+    # smaller than root
+    if l < heap_size and int(arr[i][2]) > int(arr[l][2]):
+        smallest = l
+
+    # if the member_count is same, the more characters in company_name has priority
+    if l < heap_size and int(arr[i][2]) == int(arr[l][2]):
+        if len(arr[i][3] + arr[i][4]) > len(arr[l][3] + arr[l][4]):
+            smallest = l
+
+    # See if right child of root exists and it's member_count
+    # smaller than root
+    if r < heap_size and int(arr[smallest][2]) > int(arr[r][2]):
+        smallest = r
+
+    # if the member_count is same, the more characters in company_name has priority
+    if r < heap_size and int(arr[smallest][2]) == int(arr[r][2]):
+        if len(arr[smallest][3] + arr[smallest][4]) > len(arr[r][3] + arr[r][4]):
+            smallest = r
+
+    # Change root, if needed
+    if smallest != i:
+        arr[i],arr[smallest] = arr[smallest],arr[i] # swap
+
+        # Heapify the root.
+        heapify(arr, smallest, heap_size)
+
+# heapsort
+def heapSort(arr):
+    size = len(arr)
+
+    # Build a small heap
+    for i in range(size, -1, -1):
+        heapify(arr, i, size)
+
+    # One by one extract elements
+    for i in range(size-1, 0, -1):
+        arr[i], arr[0] = arr[0], arr[i] # swap
+        heapify(arr, 0, i)
+
+    return arr
+
 # print version informaion of this machine
 def print_version_information():
     print("Duplication_processing_machine ver 0.1\n")
 
-
 # loading data
-def data_loading(__filename__, TABLE, DICTIONARY):
+def data_loading(__filename__):
+
+    global COMPANY_LIST
+    #output = open("company_sorted","a", encoding="utf-8")
+
     try :
         with open(__filename__, 'r', encoding="utf-8") as datafile:
-            for line in datafile.readlines():
-                line = line.rstrip().split('\t')
 
-                for data, iterator in zip(line, range(len(TABLE))):
-                    # push_back
-                    DICTIONARY[TABLE[iterator]].insert(len(DICTIONARY[TABLE[iterator]]), data)
+            for line in datafile.readlines():
+                line = line.replace("\n","").split('\t')
+
+                # push back
+                COMPANY_LIST.append(line)
+
+            # do heap_sort
+            # ascending order of memeber_count
+            COMPANY_LIST = heapSort(COMPANY_LIST)
 
         print("loading " + str(__filename__) + " data is done successfully!")
 
     except:
-        print("Fail to load " + str(__filename__) + "data!")
+        print("Fail to load " + str(__filename__) + " data!")
 
-# loading machine data
-def machine_data_loading():
+# print alert when those are same
+def print_same_alert(iter1, iter2):
+    print("\n<" + COMPANY_LIST[iter1][3] + ", " + COMPANY_LIST[iter1][4] + "> is same as " +
+     "<" + COMPANY_LIST[iter2][3] + ", " + COMPANY_LIST[iter2][4] + "> and merged together")
 
-    global company_name
-    global connected_company
-    global additional_name
-    global last_key
+# url_validation_test
+# test this url still exists
+def url_validation_test(iter):
+    url = COMPANY_LIST[iter][5].strip()
 
     try :
-        company = open("company_name", "r", encoding="utf-8")
-        additional = open("additional_name", "r", encoding="utf-8")
+        # Page is not found
+        if requests.get(url).status_code == 404:
+            return False
 
-        for line1 in company.readlines():
-            line1 = line1.strip().split('\t')
-            company_name.append(line1[0])
-            connected_company.append(line1[1])
+        else:
+            return True
+    except :
+        return True
 
-            if int(line1[1]) > last_key:
-                last_key = int(line1[1])
+# is_same
+# compare if COMPANY_LIST[iter1] is same COMPANY_LIST[iter2]
+# compare COMPANY_LIST[iter1] to COMPANY_LIST[iter2]
+def is_same(iter1, iter2):
 
-        print("loading company_name data is done successfully!")
-        print("loading additional_name data is done successfully!")
+    [name_ko_iter1, name_en_iter1] = PREPROCESSING(iter1)
+    [name_ko_iter2, name_en_iter2] = PREPROCESSING(iter2)
 
-        for line1 in additional.readlines():
-            additional_name.append(line1.strip())
+    # if same
+    if (name_ko_iter1 != "") and ((name_ko_iter1 == name_ko_iter2) or (name_ko_iter1 == name_en_iter2)):
 
-        print("loading connected_company data is done successfully!")
+        print_same_alert(iter1, iter2)
 
-        company.close()
-        additional.close()
+        # have to merge it with
+        # when it is alreay same with something
+        if len(COMPANY_LIST[iter1]) > 8:
+            # do something
+            return True
+        # else
+        else:
+            # add "merge_to" of iter2
+            COMPANY_LIST[iter1].append(COMPANY_LIST[iter2][8])
+            return True
 
-    except:
-        print("Fail to load machine data!")
-        company.close()
-        additional.close()
+    elif (name_en_iter1 != "") and ((name_en_iter1 == name_ko_iter2) or (name_en_iter1 == name_en_iter2)):
 
-# find_key
-# return key number
-def find_key(name):
+        print_same_alert(iter1, iter2)
 
-    name = name.strip().lower()
+        # have to merge it with
+        # when it is alreay same with something
+        if len(COMPANY_LIST[iter1]) > 8:
+            # do something
+            return True
+        # else
+        else:
+            # add "merge_to" of iter2
+            COMPANY_LIST[iter1].append(COMPANY_LIST[iter2][8])
+            return True
+    # not same
+    return False
 
-    for idx in range(len(company_name)):
-        if name == company_name[idx]:
-            return connected_company[idx]
-
-    # not exist
-    return -1
-
-# validation_test
-# check if machine seperate data well
+# similar_test
 # user input
-def validation_test(name, max_name):
-    while True:
-        # ex
-        # <samsung electronics> is already in the list
-        # <samsung electronic> is input
-        if len(name) < len(max_name):
-            print("\n" + str(name) + " is similar to " + str(max_name))
-            yn = input("merge " + str(name) + " to " + str(max_name) + " ? (y/n)\n")
+# user tests if iter1 and iter2 are really similar (y/n)
+def similar_test(iter1, iter2, not_merge):
+    # it doesn't have merge_to value yet
+    if len(COMPANY_LIST[iter1]) <= 8 :
+        if COMPANY_LIST[iter2][8] not in not_merge :
+            print("\n<" + COMPANY_LIST[iter1][3] + ", " + COMPANY_LIST[iter1][4] + "> is similar to " +
+             "<" + COMPANY_LIST[iter2][3] + ", " + COMPANY_LIST[iter2][4] + ">")
+            yn = input("Merge them together? <y/n>\n")
             yn = yn.strip()
 
             if yn == "y":
-                print(str(name) + " is merged to " + str(max_name))
-                # list input
-                company_name.append(name)
-                connected_company.append(find_key(max_name))
+                # have to merge it with
+                # when it is alreay same/similar with something
+                if len(COMPANY_LIST[iter1]) > 8:
+                    # do something
+                    return True
 
-                # database input
-                company_name_out.write(str(name) + "\t" + str(find_key(max_name)) + "\n")
-                return True
-            elif yn == "n":
+                # else
+                else:
+                    # add "merge_to" of iter2
+                    COMPANY_LIST[iter1].append(COMPANY_LIST[iter2][8])
+                    return True
+
+            else:
+                not_merge.append(COMPANY_LIST[iter2][8])
                 return False
 
-        # ex
-        # <samsung electronic> is already in the list
-        # <samsung electronics> is input
-        else:
-            print("\n" + str(name) + " is similar to " + str(max_name))
-            yn = input("merge " + str(name) + " to " + str(max_name) + " ? (y/n)\n")
-            yn = yn.strip()
-            if yn == "y":
-                print(str(name) + " is merged to " + str(max_name))
-                # list input
-                company_name.append(name)
-                connected_company.append(find_key(max_name))
-
-                # database input
-                company_name_out.write(str(name) + "\t" + str(find_key(max_name)) + "\n")
-                return True
-
-            else :
-                print("\nseperate " + str(name))
-                yn = input("company_name : " + str(max_name) + "\t additional_name : " + str(name.replace(max_name,"")) + "  (y/n)\n")
-
+    # it has merge_to value already
+    else:
+        # it seems similar but has different id
+        # connect or not
+        if COMPANY_LIST[iter1][8] != COMPANY_LIST[iter2][8]:
+            # dont have to ignore
+            if set((COMPANY_LIST[iter1][8],COMPANY_LIST[iter2][8])) not in ignore_id:
+                print("\n<" + COMPANY_LIST[iter1][3] + ", " + COMPANY_LIST[iter1][4] + "> is not Connected with " +
+                 "<" + COMPANY_LIST[iter2][3] + ", " + COMPANY_LIST[iter2][4] + ">")
+                yn = input("Connect them together? <y/n>\n")
                 yn = yn.strip()
 
                 if yn == "y":
-                    print(str(name.replace(max_name,"")) + " is added to the additional_name")
-                    # list input
-                    additional_name.append(name.replace(max_name,""))
+                    # should merge_to maximum_member_count
+                    maximum_member_count = 0
 
-                    # database input
-                    additional_name_out.write(str(name.replace(max_name,"")) + "\n")
-                    return True
-                elif yn == "n":
+                    # find merge_to
+                    for iter in range(iter1 + 1):
+                        if (COMPANY_LIST[iter][8] == COMPANY_LIST[iter1][8]) or (COMPANY_LIST[iter][8] == COMPANY_LIST[iter2][8]):
+                            if int(COMPANY_LIST[iter][2]) >= maximum_member_count:
+                                maximum_member_count = int(COMPANY_LIST[iter][2])
+                                merge_to_id = int(COMPANY_LIST[iter][8])
+
+                    # merge
+                    for iter in range(iter1 + 1):
+                        if (COMPANY_LIST[iter][8] == COMPANY_LIST[iter1][8]) or (COMPANY_LIST[iter][8] == COMPANY_LIST[iter2][8]):
+                            COMPANY_LIST[iter][8] = merge_to_id
+
+                else:
+                    # insert ignore_id
+                    ignore_id.append(set((COMPANY_LIST[iter1][8],COMPANY_LIST[iter2][8])))
+
                     return False
 
-# merge_company
-# merge same companies has different key value
-def merge_company(ko_key, en_key):
+# compare_name
+# compare either name_1 includes name_2 or vice versa
+def compare_name(name_1, name_2):
 
-    # merge to lower key value
-    lower_key = (ko_key if ko_key < en_key else en_key)
-    higher_key = (ko_key if ko_key > en_key else en_key)
-
-    for idx in range(len(company_name)):
-        if connected_company[idx] == higher_key:
-            connected_company[idx] = lower_key
-
-    print("Companies are merged!")
-
-# is_same
-# return True if the company A is already in the list
-def is_same(name_ko, name_en, o_name_ko, o_name_en):
-
-    ko_key = -1
-    en_key = -1
-
-    ko_key = find_key(name_ko)
-    en_key = find_key(name_en)
-
-    # both are in the list
-    if ko_key != -1 and en_key != -1:
-        # error
-        if ko_key != en_key:
-            merge_company(ko_key, en_key)
-            return True
-        else:
-            return True
-
-    # Korean name is in the list
-    elif ko_key != -1:
-        # input English name into the list
-        if name_en != "":
-            # output to database
-            company_name_out.write(str(name_en) + "\t" + str(ko_key) + "\n")
-
-            # output to list
-            company_name.append(str(name_en))
-            connected_company.append(ko_key)
-
-            print("\n" + str(o_name_en) + " is a new data and conneted with " + str(o_name_ko))
-        return True
-
-    # English name is in the list
-    elif en_key != -1:
-        # input Korean name in the list
-        if name_ko != "":
-            # output to database
-            company_name_out.write(str(name_ko) + "\t" + str(en_key) + "\n")
-
-            # output to list
-            company_name.append(str(name_ko))
-            connected_company.append(en_key)
-            print("\n" + str(o_name_ko) + " is a new data and conneted with " + str(o_name_en))
-        return True
-
-    # neither is in the list
-    else:
+    # if either is "", can't compare
+    if len(name_1) == 0 or len(name_2) == 0:
         return False
+
+    # set minimum_length
+    minimum_length = (len(name_1) if len(name_1) < len(name_2) else len(name_2))
+
+    # iterate index 0 to min_length-1
+    for iterator in range(minimum_length):
+        # compare character by character
+        if name_1[iterator] != name_2[iterator]:
+            return False
+
+    return True
 
 # is_similar
-# find the longest common string
-# seperate name into 2 parts (longest common string, additional string)
-# check this seperation is valid
-def is_similar(name):
+# check company name of iter1 and company name of iter2 are similar
+# if name of iter1 includes name of iter2,
+# those are similar companies, vice versa
+# if they are similar merge all data to company that has more member_count
+def is_similar(iter1, iter2, not_merge):
 
-    if name == "":
-        return False
+    # preprocessing data
+    [name_ko_iter1, name_en_iter1] = PREPROCESSING(iter1)
+    [name_ko_iter2, name_en_iter2] = PREPROCESSING(iter2)
 
-    max_length = 0
-    max_name = ""
+    # compare name_ko_iter1 to name_iter2
+    if compare_name(name_ko_iter1, name_ko_iter2):
+        return similar_test(iter1, iter2, not_merge)
+    elif compare_name(name_ko_iter1, name_en_iter2):
+        return similar_test(iter1, iter2, not_merge)
 
-    for c_name in company_name:
-        # find the longest common string
-        if c_name in name:
-            if len(c_name) > max_length:
-                max_length = len(c_name)
-                max_name = c_name
+    # compare name_en_iter1 to name_iter2
+    if compare_name(name_en_iter1, name_ko_iter2):
+        return similar_test(iter1, iter2)
+    elif compare_name(name_en_iter1, name_en_iter2):
+        return similar_test(iter1, iter2, not_merge)
 
-        # in case name is in company_name
-        if name in c_name:
-            max_name = c_name
-            if validation_test(name, max_name) is False:
-                # add company
-                return False
-
-            else:
-                return max_name
-
-    # common string exist
-    if max_length > 0:
-        for a_name in additional_name:
-            # when additional_name is same:
-            if a_name == name.replace(max_name,""):
-                print(str(name.replace(max_name,"")) + " is already in additional_name")
-                # return company_name
-                return max_name
-
-        # validation_test fail
-        if validation_test(name, max_name) is False:
-            # add company
-            return False
-        # else
-        else :
-            # return company_name
-            return max_name
-
-    # else
-    else:
-        # add_company
-        return False
-
-# add company
-# add company with name
-# assign same conneted key number with connected_company
-# user input
-def add_company(name, connected_company_name, o_name):
-
-    # last_key of connected_company key
-    global last_key
-
-    if name != "":
-
-        print("\nPlease seperate <" + str(o_name) + ">\n")
-
-        # user input
-        cn = input("company_name : ")
-        cn = cn.strip()
-        an = ""
-
-        if cn != "/a":
-            an = input("additional_name : ")
-            an = an.strip()
-            print("deleted_part : " + str(o_name.replace(cn,"").replace(an,"")))
-
-        # in case user input wrongly
-        [cn, an, o_cn, o_an] = PREPROCESSING(cn,an)
-
-        # if additional_name exist
-        if cn != "/a" and an != "":
-
-            # additional_name duplication check
-            a_check  = False
-
-            for a_name in additional_name:
-                if a_name == an:
-                    a_check = True
-                    break
-
-            if a_check == False:
-                # list input
-                additional_name.append(an)
-                # database input
-                additional_name_out.write(str(an) + "\n")
-
-                print("\n" + str(an) + " is added in additional_name")
-
-            else:
-                print("\n" + str(an) + " is already in the additional_name")
-
-        if cn != "":
-            # all
-            if cn == "/a":
-                # connected_company exist
-                if connected_company_name != "":
-                    key = find_key(connected_company_name)
-
-                    # list input
-                    company_name.append(name)
-                    connected_company.append(key)
-
-                    # database input
-                    company_name_out.write(str(name) + "\t" + str(key) + "\n")
-
-                    print("\n" + str(name) + " is added in company_name and conneted with " + str(connected_company_name))
-
-                # else
-                else:
-                    # duplication test_data
-                    # check new korean name is already in the list
-                    key = find_key(name)
-
-                    if key == -1:
-                        last_key += 1
-                        # list input
-                        company_name.append(name)
-                        connected_company.append(last_key)
-
-                        # database input
-                        company_name_out.write(str(name) + "\t" + str(last_key) + "\n")
-
-                        print("\n" + str(name) + " is added in company_name")
-
-                    else :
-                        print("\n" + str(name) + " is already in company_name")
-
-                return name
-
-            # not all
-            else:
-                # connected_company exist
-                if connected_company_name != "":
-                    key = find_key(connected_company_name)
-
-                    # list input
-                    company_name.append(cn)
-                    connected_company.append(key)
-
-                    # database input
-                    company_name_out.write(str(cn) + "\t" + str(key) + "\n")
-
-                    print("\n" + str(cn) + " is added in company_name and conneted with " + str(connected_company_name))
-                # else
-                else:
-                    # duplication test_data
-                    # check new korean name is already in the list
-                    key = find_key(cn)
-
-                    if key == -1 :
-                        last_key += 1
-                        # list input
-                        company_name.append(cn)
-                        connected_company.append(last_key)
-
-                        # database input
-                        company_name_out.write(str(cn) + "\t" + str(last_key) + "\n")
-
-                        print("\n" + str(cn) + " is added in company_name")
-
-                    else:
-                        print("\n" + str(cn) + " is already in company_name")
-
-                return cn
-
-    else :
-        return ""
+    return False
 
 # preprocessing
 # delete prefix and suffix(Delimiters)
-def PREPROCESSING(name_ko, name_en):
+# for COMPANY_LIST[iter]
+def PREPROCESSING(iter):
 
-    # original data
-    o_name_ko = name_ko
-    o_name_en = name_en
+    name_ko = COMPANY_LIST[iter][3] # Company Korean name
+    name_en = COMPANY_LIST[iter][4] # Company English name
 
     name_ko = name_ko.strip().lower()
     name_en = name_en.strip().lower()
@@ -459,105 +308,76 @@ def PREPROCESSING(name_ko, name_en):
         if delimiter in name_en:
             name_en = name_en.replace(delimiter, "")
 
-    return [name_ko, name_en, o_name_ko, o_name_en]
-
-# PROCESSING
-#
-# see algorithm at Reference below
-# Reference (https://docs.google.com/document/d/1rjr01xp-GpOVCBc01_yc2SAy3ClSEaV9jlMgx8lNefc/edit)
-def PROCESSING(name_ko, name_en, o_name_ko, o_name_en):
-
-    # is not same
-    if is_same(name_ko, name_en, o_name_ko, o_name_en) is False:
-
-        ko_similar = is_similar(name_ko)
-        en_similar = is_similar(name_en)
-
-        # both are in the list
-        if ko_similar is not False and en_similar is not False:
-            pass
-
-        # only name_ko is in the list
-        elif ko_similar is not False:
-            # ko_similar is company_name of name_ko
-            add_company(name_en, ko_similar, o_name_en)
-
-        # only name_en is in the list
-        elif en_similar is not False:
-            # en_similar is company_name of name_en
-            add_company(name_ko, en_similar, o_name_ko)
-
-        # bot are not in the list
-        else:
-            # return of add_company is company_name
-            add_company(name_en, add_company(name_ko, "", o_name_ko), o_name_en)
-
-# PRINT_CONNECTION
-# print connected list companies
-def PRINT_CONNECTION():
-    yn = input("PRINT_CONNECTION? : ")
-
-    if yn == "y":
-        print("-------------------------------------")
-
-        set_connected_company = set(connected_company)
-
-        for key in set_connected_company:
-            for idx in range(len(company_name)):
-                if key == connected_company[idx]:
-                    sys.stdout.write(company_name[idx] + ", ")
-            print()
-
-        print("-------------------------------------")
-
-        return
-
-    else :
-        return
-
+    return [name_ko, name_en]
 
 # data_processing
-# 2 parts
-# PREPROCESSING
-# PROCESSING
-def data_processing(DICTIONARY):
+# see algorithm at (https://github.com/Arcadebrush/duplication_processing_machine)
+def data_processing():
 
-    for iterator in range(len(DICTIONARY["id"])):
-        # preprocessing data
-        [name_ko, name_en, o_name_ko, o_name_en] = PREPROCESSING(DICTIONARY["name_ko"][iterator], DICTIONARY["name_en"][iterator])
+    # time complexity O(n^2)
+    for iter1 in range(len(COMPANY_LIST)):
 
-        # proceesing data
-        PROCESSING(name_ko, name_en, o_name_ko, o_name_en)
+        # variable to check if machine finds same/similar data
+        done = False
+        # list that we should not merge
+        not_merge = []
 
-        company_name_out.flush()
-        additional_name_out.flush()
+        # check if company with same name exists in COMPANY_LIST
+        # compare COMPANY_LIST[iter1] with COMPANY_LIST[0 ~ (iter1-1)]
+        # check same data first
+        for iter2 in range(0, iter1):
 
-        # for debugging
-        # PRINT_CONNECTION()
+            # when page exists
+            if COMPANY_LIST[iter2][8] != 0:
+
+                done = is_same(iter1, iter2)
+
+                # if iter1 is same as iter2
+                if done :
+                    break
+
+        # if it doesn't have same data
+        # check similar data
+        if done is False:
+
+            # check if company with similar name exists in COMPANY_LIST
+            # compare COMPANY_LIST[iter1] with COMPANY_LIST[0 ~ (iter1-1)]
+            for iter2 in range(0, iter1):
+
+                # when page exists
+                if COMPANY_LIST[iter2][8] != 0:
+                    # just execute not assign
+                    if done is True:
+                        is_similar(iter1, iter2, not_merge)
+                    else:
+                        done = is_similar(iter1, iter2, not_merge)
+
+
+        # it is neither same nor similar
+        if not done:
+            COMPANY_LIST[iter1].append(COMPANY_LIST[iter1][0])
 
 # main
 if __name__ == "__main__":
     # 2 types of data(company, school)
-    # each data is seperated "tab"
+    # each data is seperated with "tab"
     data_category = ["company", "school"]
 
     # duplication_processing_machine ver 0.1
-    # made by JYH
     print_version_information()
 
     # data_loading
     print("------------ loading data ---------------")
-    data_loading("test_data/samsung", COMPANY_TABLE ,COMPANY_DIC)
-    #data_loading(data_category[0], COMPANY_TABLE ,COMPANY_DIC)
+    data_loading("test_data/naver")
+    #data_loading(data_category[0])
     #data_loading(data_category[1], SCHOOL_TABLE ,SCHOOL_DIC)
     print("-----------------------------------------\n")
     # data_loading done
 
-    # loading duplication information
-    print("------------ loading machine data -------")
-    machine_data_loading()
-    print("-----------------------------------------\n")
-    # loading duplication information done
-
     # data_processing
-    data_processing(COMPANY_DIC)
+    data_processing()
+
+    for iter in range(len(COMPANY_LIST)):
+        for line in COMPANY_LIST[iter]:
+            output_data.write(str(line) + "\t")
+        output_data.write("\n")
