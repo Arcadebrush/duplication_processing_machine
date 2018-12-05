@@ -3,6 +3,7 @@
 
 # Import
 import io, sys
+import requests
 
 # Koren output
 sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding = 'utf-8')
@@ -31,14 +32,10 @@ SCHOOL_LIST = []
 # company_name should deleted
 # deleted_name = []
 
-# ignore_id
-# ignored id_set
-ignore_id = []
-
 # append new data
 # company_name_out = open("company_name", "a", encoding="utf-8")
 # additional_name_out = open("additional_name", "a", encoding="utf-8")
-output_data = open("test-data-out_02","w", encoding="utf-8")
+output_data = open("test-data-out_03","w", encoding="utf-8")
 
 # Delimiters
 # prefix and suffix
@@ -128,20 +125,26 @@ def print_same_alert(iter1, iter2):
     print("\n<" + COMPANY_LIST[iter1][3] + ", " + COMPANY_LIST[iter1][4] + "> is same as " +
      "<" + COMPANY_LIST[iter2][3] + ", " + COMPANY_LIST[iter2][4] + "> and merged together")
 
-# url_validation_test
-# test this url still exists
-def url_validation_test(iter):
-    url = COMPANY_LIST[iter][5].strip()
+# connect_company
+# connect company if they have different merge_id
+def connect_company(iter1, iter2):
+    max_member_count = 0 # should merge to company has maximum member count
 
-    try :
-        # Page is not found
-        if requests.get(url).status_code == 404:
-            return False
+    # find merge_to company
+    for iter in range(len(COMPANY_LIST)):
+        if (COMPANY_LIST[iter][8] == COMPANY_LIST[iter1][8]) or (COMPANY_LIST[iter][8] == COMPANY_LIST[iter2][8]):
+            if COMPANY_LIST[iter][2] > max_member_count:
+                max_member_count = COMPANY_LIST[iter][2]
+                merge_to_id = COMPANY_LIST[iter][8]
+                id = iter
 
-        else:
-            return True
-    except :
-        return True
+    # connect
+    for iter in range(len(COMPANY_LIST)):
+        if (COMPANY_LIST[iter][8] == COMPANY_LIST[iter1][8]) or (COMPANY_LIST[iter][8] == COMPANY_LIST[iter2][8]):
+            print("\n<" + COMPANY_LIST[iter][3] + ", " + COMPANY_LIST[iter][4] + "> is connected with " +
+             "<" + COMPANY_LIST[id][3] + ", " + COMPANY_LIST[id][4] + ">")
+            COMPANY_LIST[iter][8] = merge_to_id
+
 
 # is_same
 # compare if COMPANY_LIST[iter1] is same COMPANY_LIST[iter2]
@@ -154,31 +157,33 @@ def is_same(iter1, iter2):
     # if same
     if (name_ko_iter1 != "") and ((name_ko_iter1 == name_ko_iter2) or (name_ko_iter1 == name_en_iter2)):
 
-        print_same_alert(iter1, iter2)
-
         # have to merge it with
         # when it is alreay same with something
         if len(COMPANY_LIST[iter1]) > 8:
-            # do something
+            # when they are not connected
+            if COMPANY_LIST[iter1][8] != COMPANY_LIST[iter2][8]:
+                connect_company(iter1, iter2)
             return True
         # else
         else:
             # add "merge_to" of iter2
+            print_same_alert(iter1, iter2)
             COMPANY_LIST[iter1].append(COMPANY_LIST[iter2][8])
             return True
 
     elif (name_en_iter1 != "") and ((name_en_iter1 == name_ko_iter2) or (name_en_iter1 == name_en_iter2)):
 
-        print_same_alert(iter1, iter2)
-
         # have to merge it with
         # when it is alreay same with something
         if len(COMPANY_LIST[iter1]) > 8:
-            # do something
+            # when they are not connected
+            if COMPANY_LIST[iter1][8] != COMPANY_LIST[iter2][8]:
+                connect_company(iter1, iter2)
             return True
         # else
         else:
             # add "merge_to" of iter2
+            print_same_alert(iter1, iter2)
             COMPANY_LIST[iter1].append(COMPANY_LIST[iter2][8])
             return True
     # not same
@@ -187,65 +192,28 @@ def is_same(iter1, iter2):
 # similar_test
 # user input
 # user tests if iter1 and iter2 are really similar (y/n)
-def similar_test(iter1, iter2, not_merge):
+def similar_test(iter1, iter2):
     # it doesn't have merge_to value yet
-    if len(COMPANY_LIST[iter1]) <= 8 :
-        if COMPANY_LIST[iter2][8] not in not_merge :
-            print("\n<" + COMPANY_LIST[iter1][3] + ", " + COMPANY_LIST[iter1][4] + "> is similar to " +
-             "<" + COMPANY_LIST[iter2][3] + ", " + COMPANY_LIST[iter2][4] + ">")
-            yn = input("Merge them together? <y/n>\n")
-            yn = yn.strip()
+    print("\n<" + COMPANY_LIST[iter1][3] + ", " + COMPANY_LIST[iter1][4] + "> is similar to " +
+     "<" + COMPANY_LIST[iter2][3] + ", " + COMPANY_LIST[iter2][4] + ">")
+    yn = input("Merge them together? <y/n>\n")
+    yn = yn.strip()
 
-            if yn == "y":
-                # have to merge it with
-                # when it is alreay same/similar with something
-                if len(COMPANY_LIST[iter1]) > 8:
-                    # do something
-                    return True
+    if yn == "y" or yn == "Y":
+        # have to merge it with
+        # when it is alreay same/similar with something
+        if len(COMPANY_LIST[iter1]) > 8:
+            # do something
+            return True
 
-                # else
-                else:
-                    # add "merge_to" of iter2
-                    COMPANY_LIST[iter1].append(COMPANY_LIST[iter2][8])
-                    return True
+        # else
+        else:
+            # add "merge_to" of iter2
+            COMPANY_LIST[iter1].append(COMPANY_LIST[iter2][8])
+            return True
 
-            else:
-                not_merge.append(COMPANY_LIST[iter2][8])
-                return False
-
-    # it has merge_to value already
     else:
-        # it seems similar but has different id
-        # connect or not
-        if COMPANY_LIST[iter1][8] != COMPANY_LIST[iter2][8]:
-            # dont have to ignore
-            if set((COMPANY_LIST[iter1][8],COMPANY_LIST[iter2][8])) not in ignore_id:
-                print("\n<" + COMPANY_LIST[iter1][3] + ", " + COMPANY_LIST[iter1][4] + "> is not Connected with " +
-                 "<" + COMPANY_LIST[iter2][3] + ", " + COMPANY_LIST[iter2][4] + ">")
-                yn = input("Connect them together? <y/n>\n")
-                yn = yn.strip()
-
-                if yn == "y":
-                    # should merge_to maximum_member_count
-                    maximum_member_count = 0
-
-                    # find merge_to
-                    for iter in range(iter1 + 1):
-                        if (COMPANY_LIST[iter][8] == COMPANY_LIST[iter1][8]) or (COMPANY_LIST[iter][8] == COMPANY_LIST[iter2][8]):
-                            if int(COMPANY_LIST[iter][2]) >= maximum_member_count:
-                                maximum_member_count = int(COMPANY_LIST[iter][2])
-                                merge_to_id = int(COMPANY_LIST[iter][8])
-
-                    # merge
-                    for iter in range(iter1 + 1):
-                        if (COMPANY_LIST[iter][8] == COMPANY_LIST[iter1][8]) or (COMPANY_LIST[iter][8] == COMPANY_LIST[iter2][8]):
-                            COMPANY_LIST[iter][8] = merge_to_id
-
-                else:
-                    # insert ignore_id
-                    ignore_id.append(set((COMPANY_LIST[iter1][8],COMPANY_LIST[iter2][8])))
-
-                    return False
+        return False
 
 # compare_name
 # compare either name_1 includes name_2 or vice versa
@@ -271,7 +239,7 @@ def compare_name(name_1, name_2):
 # if name of iter1 includes name of iter2,
 # those are similar companies, vice versa
 # if they are similar merge all data to company that has more member_count
-def is_similar(iter1, iter2, not_merge):
+def is_similar(iter1, iter2):
 
     # preprocessing data
     [name_ko_iter1, name_en_iter1] = PREPROCESSING(iter1)
@@ -279,15 +247,15 @@ def is_similar(iter1, iter2, not_merge):
 
     # compare name_ko_iter1 to name_iter2
     if compare_name(name_ko_iter1, name_ko_iter2):
-        return similar_test(iter1, iter2, not_merge)
+        return similar_test(iter1, iter2)
     elif compare_name(name_ko_iter1, name_en_iter2):
-        return similar_test(iter1, iter2, not_merge)
+        return similar_test(iter1, iter2)
 
     # compare name_en_iter1 to name_iter2
     if compare_name(name_en_iter1, name_ko_iter2):
         return similar_test(iter1, iter2)
     elif compare_name(name_en_iter1, name_en_iter2):
-        return similar_test(iter1, iter2, not_merge)
+        return similar_test(iter1, iter2)
 
     return False
 
@@ -319,8 +287,6 @@ def data_processing():
 
         # variable to check if machine finds same/similar data
         done = False
-        # list that we should not merge
-        not_merge = []
 
         # check if company with same name exists in COMPANY_LIST
         # compare COMPANY_LIST[iter1] with COMPANY_LIST[0 ~ (iter1-1)]
@@ -346,16 +312,42 @@ def data_processing():
 
                 # when page exists
                 if COMPANY_LIST[iter2][8] != 0:
-                    # just execute not assign
-                    if done is True:
-                        is_similar(iter1, iter2, not_merge)
-                    else:
-                        done = is_similar(iter1, iter2, not_merge)
 
+                    done = is_similar(iter1, iter2)
+
+                    # if iter1 is similar to iter2
+                    if done :
+                        break
 
         # it is neither same nor similar
         if not done:
             COMPANY_LIST[iter1].append(COMPANY_LIST[iter1][0])
+
+# post_processing
+# if companies have same name
+# but have different merge_to id
+# connect them together
+def post_processing():
+
+    for iter1 in range(len(COMPANY_LIST)):
+
+        # variable to check if machine finds same data
+        done = False
+
+        # check if company with same name exists in COMPANY_LIST
+        # compare COMPANY_LIST[iter1] with COMPANY_LIST[iter1 + 1 ~ end]
+        # check same data first
+        for iter2 in range(iter1 + 1, len(COMPANY_LIST)):
+
+            # when page exists
+            if COMPANY_LIST[iter2][8] != 0:
+
+                done = is_same(iter1, iter2)
+
+                # if iter1 is same as iter2
+                if done :
+                    break
+
 
 # main
 if __name__ == "__main__":
@@ -368,7 +360,7 @@ if __name__ == "__main__":
 
     # data_loading
     print("------------ loading data ---------------")
-    data_loading("test_data/naver")
+    data_loading("test-data")
     #data_loading(data_category[0])
     #data_loading(data_category[1], SCHOOL_TABLE ,SCHOOL_DIC)
     print("-----------------------------------------\n")
@@ -376,7 +368,15 @@ if __name__ == "__main__":
 
     # data_processing
     data_processing()
+    # data_processing done
 
+    # connect companies if they are not
+    print("\n------------ connecting companies ---------------")
+    post_processing()
+    print("\n-------------------------------------------------\n")
+    # connect companies done
+
+    # output data
     for iter in range(len(COMPANY_LIST)):
         for line in COMPANY_LIST[iter]:
             output_data.write(str(line) + "\t")
