@@ -1,3 +1,4 @@
+# -*- coding:utf-8 -*-
 # duplication_test_machine_ver_0.1
 
 # pip install --upgrade google-cloud-translate
@@ -5,8 +6,7 @@ import os, sys
 from google.cloud import translate
 
 # Instantiates a client
-translate_client = translate.Client()
-
+#translate_client = translate.Client()
 
 import weight
 from preprocessing import PREPROCESSING
@@ -14,10 +14,12 @@ from name_same_check import name_same_check
 from validation_test import validation_test, information, COMPANY_TAG_PAGE_TEST
 from merge import merge
 
+# TEST FILE
+FILE_NAME = "company20190417"
 
 # write_file
 def write_file(__filename__, COMPANY_LIST):
-    file = open(__filename__, "w", encoding="utf-8")
+    file = open(__filename__, "w")
 
     for iter in range(len(COMPANY_LIST)):
         for data in COMPANY_LIST[iter]:
@@ -27,9 +29,22 @@ def write_file(__filename__, COMPANY_LIST):
 
     file.close()
 
-# loading data
-def data_loading(__filename__, COMPANY_LIST):
-    with open(__filename__, 'r', encoding="utf-8") as datafile:
+# load company data
+def data_loading(__filename__, COMPANY_LIST, CORRECT_DATA, INCORRECT_DATA):
+    with open("correct_data_backup","r") as cor_data:
+        for data in cor_data.readlines():
+            data = data.strip().split("\t")
+
+            CORRECT_DATA.append(set(data))
+
+    with open("name_same_but_different","r") as cor_data:
+        for data in cor_data.readlines():
+            data = data.strip().split("\t")
+
+            INCORRECT_DATA.append(set(data))
+
+
+    with open(__filename__, 'r') as datafile:
 
         iterator = 0
 
@@ -41,14 +56,14 @@ def data_loading(__filename__, COMPANY_LIST):
             COMPANY_LIST.append(line)
 
             # if line doesn't have weight yet
-            if len(line) < 14:
+            if len(line) < 12:
                 # DEBUG:
                 # print(iterator)
                 COMPANY_LIST[iterator].append(weight.Calculate_weight(line, iterator, COMPANY_LIST))
 
             # if line doesn't have connected_with yet
             # it means it is not checked_yet
-            if len(line) < 15:
+            if len(line) < 13:
                 COMPANY_LIST[iterator].append("-1")
 
             iterator += 1
@@ -59,101 +74,54 @@ def data_loading(__filename__, COMPANY_LIST):
     # write_file
     write_file(__filename__, COMPANY_LIST)
 
-    return COMPANY_LIST
-
-# COMAPNY_DELETE_TEST
-def COMPANY_DELETE_TEST(COMPANY_LIST, iter_1):
-
-    if int(COMPANY_LIST[iter_1][2]) == 0 and (not COMPANY_LIST[iter_1][6]) and int(COMPANY_LIST[iter_1][13]) <= 2:
-        permalink = COMPANY_LIST[iter_1][5].replace("https://www.rocketpunch.com/companies/", "")
-
-        if COMPANY_TAG_PAGE_TEST("https://www.rocketpunch.com/tag/" + permalink):
-            # pip install selenium
-            from selenium import webdriver
-
-            BASE_DIR = os.getcwd()
-
-            # chromedriver
-            driver = webdriver.Chrome(os.path.join(BASE_DIR, "chromedriver.exe"))
-
-            # permalink_page for iterator_1
-            driver.get(COMPANY_LIST[iter_1][5])
-
-            yn = input("Delete? <y/n>\n")
-            yn = yn.strip()
-
-            driver.close()
-
-            if yn == "y" or yn == "Y":
-                return True
-
-            else:
-                return False
-
+    return COMPANY_LIST, CORRECT_DATA,INCORRECT_DATA
 
 if __name__=="__main__":
 
     COMPANY_LIST = []
+    CORRECT_DATA = []
+    INCORRECT_DATA = []
 
     # __filename__
-    COMPANY_LIST = data_loading("company0.190108", COMPANY_LIST)
+    [COMPANY_LIST,CORRECT_DATA,INCORRECT_DATA] = data_loading(FILE_NAME, COMPANY_LIST, CORRECT_DATA, INCORRECT_DATA)
 
     # time_complexity O(N^2)
-    for iter_1 in range(len(COMPANY_LIST)):
+    for iter_1, data_1 in enumerate(COMPANY_LIST):
 
-        if int(COMPANY_LIST[iter_1][14]) != -1:
+        # when it connects with something else
+        # continue
+        if int(data_1[12]) != -1:
             continue
 
-        # Korean_name and English_name
         [name_ko, name_en] = PREPROCESSING(iter_1, COMPANY_LIST)
 
-        # translated name
+        translation_name = ""
 
-        result = translate_client.detect_language(name_ko)
-
-        # only korean
-        if result['language'] == "ko":
-
-            target_lang = "en"
-
-            translation = translate_client.translate(
-                name_ko,
-                target_language=target_lang)
-
-            translation_name = translation['translatedText'].lower().replace(" ","")
-
-        else:
-            translation_name = ""
-
-            # DEBUG:
-            # print(translation_name)
-
-        # COMAPNY_DELETE_TEST
-        # it doesnt't have logo, 한 줄 소개, 기업 소개
-        # member_count, old person, URL
-        # USER_defines whether delete it
-        if COMPANY_DELETE_TEST(COMPANY_LIST, iter_1):
-            COMPANY_LIST[iter_1][14] = 0
-
-            # write_file
-            write_file("company0.190108", COMPANY_LIST)
-
-            continue
+        # DEBUG:
+        #print(translation_name)
 
         # iterate 0 ~ (iter_1)-1
-        for iter_2 in range(iter_1):
+        for iter_2 in range(iter_1+1, len(COMPANY_LIST)):
             # if name is same
-            if name_same_check(name_ko, name_en, translation_name, iter_2, COMPANY_LIST):
+            if int(COMPANY_LIST[iter_2][12]) != 0 and name_same_check(name_ko, name_en, translation_name, iter_2, COMPANY_LIST):
+                #if set([COMPANY_LIST[iter_1][0], COMPANY_LIST[iter_2][0]]) in CORRECT_DATA:
+                #    COMPANY_LIST = merge(iter_1, iter_2, COMPANY_LIST)
+                #elif set([COMPANY_LIST[iter_1][0], COMPANY_LIST[iter_2][0]]) in INCORRECT_DATA:
+                #    pass
                 if validation_test(iter_1, iter_2, COMPANY_LIST):
-                    COMPANY_LIST = merge(iter_1, iter_2, COMPANY_LIST)
-                    break
+                    # COMPANY_LIST = merge(iter_1, iter_2, COMPANY_LIST)
+                    with open("correct_data_backup","a") as file:
+                        file.write("{0}\t{1}\n".format(COMPANY_LIST[iter_1][0], COMPANY_LIST[iter_2][0]))
+                else:
+                    with open("name_same_but_different","a") as file:
+                        file.write("{0}\t{1}\n".format(COMPANY_LIST[iter_1][0], COMPANY_LIST[iter_2][0]))
 
         # if it is not changed
-        if int(COMPANY_LIST[iter_1][14]) == -1:
-            COMPANY_LIST[iter_1][14] = int(COMPANY_LIST[iter_1][0])
+        if int(COMPANY_LIST[iter_1][12]) == -1:
+            COMPANY_LIST[iter_1][12] = int(COMPANY_LIST[iter_1][0])
 
         # write_file
-        write_file("company0.190108", COMPANY_LIST)
+        write_file(FILE_NAME, COMPANY_LIST)
 
         # DEBUG:
         # print(str(COMPANY_LIST[iter_1][3]))

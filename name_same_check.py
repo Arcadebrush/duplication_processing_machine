@@ -1,9 +1,15 @@
+# -*- coding:utf-8 -*-
 # name_same_check
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
 from google.cloud import translate
 from preprocessing import PREPROCESSING
+from levenshtein import levenshtein
 
 # Instantiates a client
-translate_client = translate.Client()
+# translate_client = translate.Client()
 
 # compare COMPANY_LIST[iterator1] and COMPANY_LIST[iterator2]
 def name_same_check(name_ko, name_en, translation_name, iterator2, COMPANY_LIST):
@@ -11,61 +17,53 @@ def name_same_check(name_ko, name_en, translation_name, iterator2, COMPANY_LIST)
     # preprocessing
     [iter2_ko_name, iter2_en_name] = PREPROCESSING(iterator2, COMPANY_LIST)
 
-    # if it is korean
-    result = translate_client.detect_language(iter2_ko_name)
+    tr_name = ""
 
-    if result['language'] == "ko":
-
-        target_lang = "en"
-
-        translation = translate_client.translate(
-            iter2_ko_name,
-            target_language=target_lang)
-
-        tr_name = translation['translatedText'].lower().replace(" ","")
-
-    else:
-        tr_name = ""
-
-    # DEBUG:
-    # print(iter2_ko_name)
-    # print(name_ko)
-
-    # completely same
-    if name_ko:   # not empty
-        if (name_ko == iter2_ko_name) or (name_ko == iter2_en_name):
-
-            # DEBUG:
-            # print("true")
-
-            return True
-
-    if name_en:   # not empty
-        if (name_en == iter2_ko_name) or (name_en == iter2_en_name):
-            return True
-
-    if translation_name:   # not empty
-        if (translation_name == iter2_ko_name) or (translation_name == iter2_en_name):
-            return True
-
-    if tr_name: # not empty
-        if (tr_name == name_ko) or (tr_name == name_en) or (tr_name == translation_name):
-            return True
-
-    # inclusive same
+    # inclusive
+    # <로켓펀치, rocketpunch> and <로켓펀치(rocketpunch), >
     if name_ko and name_en:
-        if (name_ko in iter2_ko_name) and (name_en in iter2_ko_name):
+        if (name_ko + name_en == iter2_ko_name) or (name_en + name_ko == iter2_ko_name):
             return True
-
-        if (name_ko in iter2_en_name) and (name_en in iter2_en_name):
+        if (name_ko + name_en == iter2_en_name) or (name_en + name_ko == iter2_en_name):
             return True
 
     if iter2_ko_name and iter2_en_name:
-        if (iter2_ko_name in name_ko) and (iter2_en_name in name_ko):
+        if (iter2_ko_name + iter2_en_name == name_ko) or (iter2_en_name + iter2_ko_name == name_ko):
+            return True
+        if (iter2_ko_name + iter2_en_name == name_en) or (iter2_en_name + iter2_ko_name == name_en):
             return True
 
-        if (iter2_ko_name in name_en) and (iter2_en_name in name_en):
+    # if words distance is less than 2
+    # exact matching
+
+    if name_ko:
+        if iter2_ko_name and name_ko == iter2_ko_name:
             return True
 
+        if iter2_en_name and name_ko == iter2_en_name:
+            return True
+
+        if tr_name and name_ko == tr_name:
+            return True
+
+    if name_en:
+        if iter2_ko_name and name_en == iter2_ko_name:
+            return True
+
+        if iter2_en_name and name_en == iter2_en_name:
+            return True
+
+        if tr_name and name_en == tr_name:
+            return True
+
+    if translation_name:
+        if iter2_ko_name and translation_name == iter2_ko_name:
+            return True
+
+        if iter2_en_name and translation_name == iter2_en_name:
+            return True
+
+        if tr_name and translation_name == tr_name:
+            return True
 
     return False
